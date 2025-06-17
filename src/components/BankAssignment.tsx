@@ -9,6 +9,9 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { BankLetterPDF } from './BankLetterPDF';
+import { QRCodeGenerator } from './QRCodeGenerator';
 import type { Bank } from '../types/bank';
 
 const formSchema = z.object({
@@ -69,6 +72,7 @@ export function BankAssignment() {
   const [currentBank, setCurrentBank] = useState<Bank | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -291,42 +295,81 @@ export function BankAssignment() {
           </div>
         )}
         
-        <div className="space-y-4 mb-6">
-          <div>
-            <strong>UFI:</strong> {currentBank.ufi}
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex">
+                <span className="w-24 font-semibold">UFI:</span>
+                <span>{currentBank.ufi}</span>
+              </div>
+              <div className="flex">
+                <span className="w-24 font-semibold">Bank Name:</span>
+                <span>{currentBank.bankName}</span>
+              </div>
+              <div className="flex">
+                <span className="w-24 font-semibold">Branch:</span>
+                <span>{currentBank.branchName}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex">
+                <span className="w-24 font-semibold">IFSC:</span>
+                <span>{currentBank.ifscCode}</span>
+              </div>
+              <div className="flex">
+                <span className="w-24 font-semibold">Address:</span>
+                <span className="flex-1">{currentBank.address}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <strong>Bank Name:</strong> {currentBank.bankName}
-          </div>
-          <div>
-            <strong>Branch:</strong> {currentBank.branchName}
-          </div>
-          <div>
-            <strong>IFSC:</strong> {currentBank.ifscCode}
-          </div>
-          <div>
-            <strong>Address:</strong> {currentBank.address}
+
+          <div className="flex justify-end gap-4 border-t pt-4">
+            <QRCodeGenerator 
+              bank={currentBank}
+              onGenerate={setQrCodeUrl}
+            />
+            {qrCodeUrl && (
+              <PDFDownloadLink
+                document={
+                  <BankLetterPDF 
+                    bank={currentBank}
+                    qrCodeUrl={qrCodeUrl}
+                  />
+                }
+                fileName={`${currentBank.bankName.replace(/\s+/g, '_')}_letter.pdf`}
+              >
+                {({ loading }) => (
+                  <Button 
+                    variant="outline"
+                    disabled={loading}
+                    className="min-w-[150px]"
+                  >
+                    {loading ? 'Generating PDF...' : 'Generate Letter'}
+                  </Button>
+                )}
+              </PDFDownloadLink>
+            )}
           </div>
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-8">
             <FormField
               control={form.control}
               name="phoneNumber"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Phone Number</FormLabel>
+                  <FormLabel className="font-medium">Phone Number</FormLabel>
                   <FormControl>
                     <Input 
                       placeholder="Enter phone number" 
                       {...field} 
                       autoFocus
-                      className={fieldState.error ? "border-red-500" : ""}
+                      className={`${fieldState.error ? "border-red-500" : ""} h-10`}
                     />
                   </FormControl>
                   {fieldState.error && (
-                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                   )}
                 </FormItem>
               )}
@@ -336,11 +379,11 @@ export function BankAssignment() {
               control={form.control}
               name="phoneResponse"
               render={({ field, fieldState }) => (
-                <FormItem>
-                  <FormLabel>Phone Response</FormLabel>
+                <FormItem className="space-y-3">
+                  <FormLabel className="font-medium">Phone Response</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 ${fieldState.error ? "border-red-500" : ""}`}>
+                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 h-10 ${fieldState.error ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Select phone response" className="text-blue-900" />
                       </SelectTrigger>
                     </FormControl>
@@ -354,7 +397,7 @@ export function BankAssignment() {
                     </SelectContent>
                   </Select>
                   {fieldState.error && (
-                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                   )}
                 </FormItem>
               )}
@@ -364,11 +407,13 @@ export function BankAssignment() {
               control={form.control}
               name="response"
               render={({ field, fieldState }) => (
-                <FormItem>
-                  <FormLabel>Response Type {form.watch('phoneResponse') === 'toll_free' || form.watch('phoneResponse') === 'registered_only' ? '(Required)' : '(Optional)'}</FormLabel>
+                <FormItem className="space-y-3">
+                  <FormLabel className="font-medium">
+                    Response Type {form.watch('phoneResponse') === 'toll_free' || form.watch('phoneResponse') === 'registered_only' ? '(Required)' : '(Optional)'}
+                  </FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 ${fieldState.error ? "border-red-500" : ""}`}>
+                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 h-10 ${fieldState.error ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Select response type" className="text-blue-900" />
                       </SelectTrigger>
                     </FormControl>
@@ -380,7 +425,7 @@ export function BankAssignment() {
                     </SelectContent>
                   </Select>
                   {fieldState.error && (
-                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                   )}
                 </FormItem>
               )}
@@ -392,16 +437,16 @@ export function BankAssignment() {
                 name="updateAddress"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Correct Address</FormLabel>
+                    <FormLabel className="font-medium">Correct Address</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="Enter the correct address" 
                         {...field} 
-                        className={fieldState.error ? "border-red-500" : ""}
+                        className={`${fieldState.error ? "border-red-500" : ""} h-10`}
                       />
                     </FormControl>
                     {fieldState.error && (
-                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                      <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                     )}
                   </FormItem>
                 )}
@@ -414,16 +459,16 @@ export function BankAssignment() {
                 name="updateAddress"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>New Location Address</FormLabel>
+                    <FormLabel className="font-medium">New Location Address</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="Enter the new location address" 
                         {...field} 
-                        className={fieldState.error ? "border-red-500" : ""}
+                        className={`${fieldState.error ? "border-red-500" : ""} h-10`}
                       />
                     </FormControl>
                     {fieldState.error && (
-                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                      <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                     )}
                   </FormItem>
                 )}
@@ -436,16 +481,16 @@ export function BankAssignment() {
                 name="updatedBranchName"
                 render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Updated Branch Name</FormLabel>
+                    <FormLabel className="font-medium">Updated Branch Name</FormLabel>
                     <FormControl>
                       <Input 
                         placeholder="Enter updated branch name" 
                         {...field} 
-                        className={fieldState.error ? "border-red-500" : ""}
+                        className={`${fieldState.error ? "border-red-500" : ""} h-10`}
                       />
                     </FormControl>
                     {fieldState.error && (
-                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                      <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                     )}
                   </FormItem>
                 )}
@@ -457,28 +502,29 @@ export function BankAssignment() {
               name="remarks"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Remarks</FormLabel>
+                  <FormLabel className="font-medium">Remarks</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Enter any remarks or additional information" 
                       {...field} 
-                      className={fieldState.error ? "border-red-500" : ""}
+                      className={`${fieldState.error ? "border-red-500" : ""} min-h-[100px] resize-none`}
                     />
                   </FormControl>
                   {fieldState.error && (
-                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    <p className="text-sm text-red-500 mt-1.5">{fieldState.error.message}</p>
                   )}
                 </FormItem>
               )}
             />
 
-            <div className="flex gap-4">
-              <Button type="submit" disabled={loading}>
+            <div className="flex justify-between gap-4 pt-4 border-t">
+              <Button type="submit" className="min-w-[200px]" disabled={loading}>
                 Submit and Get Next
               </Button>
               <Button 
                 type="button" 
-                variant="outline" 
+                variant="outline"
+                className="min-w-[200px]"
                 onClick={handleCancel} 
                 disabled={loading}
               >
