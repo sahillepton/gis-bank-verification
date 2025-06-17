@@ -44,27 +44,20 @@ export function BankAssignment() {
       const response = await axios.get(SHEETY_API);
       
       const banks = response.data.banks as Bank[];
-      // Filter all unassigned banks
       const unassignedBanks = banks.filter(bank => !bank.userName);
-      console.log("Total unassigned banks:", unassignedBanks.length);
       
       if (unassignedBanks.length > 0) {
-        // Randomly select one bank from unassigned banks
         const randomIndex = Math.floor(Math.random() * unassignedBanks.length);
         const randomBank = unassignedBanks[randomIndex];
-        console.log("Randomly selected bank:", randomBank.id);
         
-        // First assign the user to this bank
-        const res = await axios.put(`${SHEETY_API}/${randomBank.id}`, {
+         await axios.put(`${SHEETY_API}/${randomBank.id}`, {
           bank: { ...randomBank, userName },
         });
-        console.log("res", res);
         setCurrentBank(randomBank);
       } else {
         setError("No unassigned banks available at the moment.");
       }
     } catch (error) {
-      console.error('Error fetching bank:', error);
       setError("Failed to fetch bank details. Please try again.");
     } finally {
       setLoading(false);
@@ -90,7 +83,6 @@ export function BankAssignment() {
         setLoading(true);
         setError(null);
         
-        // First update the bank to remove user assignment
         await axios.put(`${SHEETY_API}/${currentBank.id}`, {
           bank: {
             ...currentBank,
@@ -103,17 +95,13 @@ export function BankAssignment() {
           }
         });
         
-        // Wait a bit to ensure Google Sheets has updated
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // Clear current bank and form
         setCurrentBank(null);
         form.reset();
         
-        // Explicitly fetch a new unassigned bank
         await fetchUnassignedBank();
       } catch (error) {
-        console.error('Error canceling assignment:', error);
         setError("Failed to cancel assignment. Please try again.");
       } finally {
         setLoading(false);
