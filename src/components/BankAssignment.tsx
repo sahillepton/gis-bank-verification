@@ -34,9 +34,7 @@ const formSchema = z.object({
     'branch_name_change',
     'no_change_in_address',
     'bank_shift'
-  ], {
-    required_error: "Please select a response type"
-  }),
+  ]).optional(),
   
   updateAddress: z.string()
     .min(10, "Address must be at least 10 characters")
@@ -61,7 +59,7 @@ const formSchema = z.object({
   remarks: z.string()
     .max(500, "Remarks must not exceed 500 characters")
     .optional()
-    .transform(val => val || "") // Transform empty string or undefined to empty string
+    .transform(val => val || "")
 });
 
 const SHEETY_API = 'https://api.sheety.co/632604ca09353483222880568eb0ebe2/bankAddressForCalling/banks';
@@ -160,6 +158,13 @@ export function BankAssignment() {
       setLoading(true);
       setError(null);
       
+      // Check if response type is required
+      const successfulResponses = ['toll_free', 'registered_only'];
+      if (successfulResponses.includes(values.phoneResponse) && !values.response) {
+        setError("Response type is required for successful calls");
+        return;
+      }
+
       // Validate required fields based on response type
       if (values.response === 'address_change' && !values.updateAddress) {
         setError("Updated address is required for address change");
@@ -169,8 +174,8 @@ export function BankAssignment() {
         setError("Updated branch name is required for branch name change");
         return;
       }
-      if (values.response === 'bank_shift' && (!values.updateAddress || !values.updatedBranchName)) {
-        setError("Both updated address and branch name are required");
+      if (values.response === 'bank_shift' && !values.updateAddress) {
+        setError("Updated address is required for bank shift");
         return;
       }
 
@@ -183,10 +188,8 @@ export function BankAssignment() {
       
       setCurrentBank(null);
       form.reset();
-      // Automatically fetch next unassigned bank
       fetchUnassignedBank();
     } catch (error) {
-      console.error('Error updating bank:', error);
       setError("Failed to update bank information. Please try again.");
     } finally {
       setLoading(false);
@@ -362,7 +365,7 @@ export function BankAssignment() {
               name="response"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Response Type</FormLabel>
+                  <FormLabel>Response Type {form.watch('phoneResponse') === 'toll_free' || form.watch('phoneResponse') === 'registered_only' ? '(Required)' : '(Optional)'}</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 ${fieldState.error ? "border-red-500" : ""}`}>
@@ -370,30 +373,10 @@ export function BankAssignment() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-white border-blue-200">
-                      <SelectItem 
-                        value="address_change" 
-                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
-                      >
-                        Address Change
-                      </SelectItem>
-                      <SelectItem 
-                        value="branch_name_change" 
-                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
-                      >
-                        Branch Name Change
-                      </SelectItem>
-                      <SelectItem 
-                        value="no_change_in_address" 
-                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
-                      >
-                        No Change in Address
-                      </SelectItem>
-                      <SelectItem 
-                        value="bank_shift" 
-                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
-                      >
-                        Bank Shift
-                      </SelectItem>
+                      <SelectItem value="address_change" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Address Change</SelectItem>
+                      <SelectItem value="branch_name_change" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Branch Name Change</SelectItem>
+                      <SelectItem value="no_change_in_address" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">No Change in Address</SelectItem>
+                      <SelectItem value="bank_shift" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Bank Shift</SelectItem>
                     </SelectContent>
                   </Select>
                   {fieldState.error && (
