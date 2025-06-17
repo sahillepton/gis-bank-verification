@@ -12,13 +12,56 @@ import { Button } from './ui/button';
 import type { Bank } from '../types/bank';
 
 const formSchema = z.object({
-  phoneNumber: z.string().min(10, "Phone number must be at least 10 digits").max(15, "Phone number must not exceed 15 digits"),
-  response: z.enum(['address_change', 'name_change', 'name_and_address_change'], {
+  phoneNumber: z.string()
+    .min(10, "Phone number must be at least 10 digits")
+    .max(15, "Phone number must not exceed 15 digits")
+    .regex(/^[0-9]+$/, "Phone number must contain only digits")
+    .refine((val) => !val.startsWith('0'), "Phone number should not start with 0"),
+  
+  phoneResponse: z.enum([
+    'toll_free',
+    'registered_only',
+    'invalid_number',
+    'no_response',
+    'switched_off',
+    'number_not_found'
+  ], {
+    required_error: "Please select a phone response type"
+  }),
+
+  response: z.enum([
+    'address_change',
+    'branch_name_change',
+    'no_change_in_address',
+    'bank_shift'
+  ], {
     required_error: "Please select a response type"
   }),
-  updateAddress: z.string().optional(),
-  updatedBranchName: z.string().optional(),
-  remarks: z.string().min(1, "Please enter remarks"),
+  
+  updateAddress: z.string()
+    .min(10, "Address must be at least 10 characters")
+    .max(200, "Address must not exceed 200 characters")
+    .regex(/^[a-zA-Z0-9\s,.-]+$/, "Address can only contain letters, numbers, spaces, commas, dots, and hyphens")
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      return val.trim().split(' ').length >= 3;
+    }, "Address should contain at least 3 words"),
+  
+  updatedBranchName: z.string()
+    .min(3, "Branch name must be at least 3 characters")
+    .max(100, "Branch name must not exceed 100 characters")
+    .regex(/^[a-zA-Z0-9\s-]+$/, "Branch name can only contain letters, numbers, spaces, and hyphens")
+    .optional()
+    .refine((val) => {
+      if (!val) return true;
+      return /^[A-Z]/.test(val);
+    }, "Branch name should start with a capital letter"),
+  
+  remarks: z.string()
+    .min(5, "Remarks must be at least 5 characters")
+    .max(500, "Remarks must not exceed 500 characters")
+    .refine((val) => val.trim().split(' ').length >= 2, "Remarks should contain at least 2 words")
 });
 
 const SHEETY_API = 'https://api.sheety.co/632604ca09353483222880568eb0ebe2/bankAddressForCalling/banks';
@@ -35,6 +78,7 @@ export function BankAssignment() {
       phoneNumber: '',
       remarks: '',
     },
+    mode: "onChange"
   });
 
   const fetchUnassignedBank = async () => {
@@ -121,11 +165,11 @@ export function BankAssignment() {
         setError("Updated address is required for address change");
         return;
       }
-      if (values.response === 'name_change' && !values.updatedBranchName) {
-        setError("Updated branch name is required for name change");
+      if (values.response === 'branch_name_change' && !values.updatedBranchName) {
+        setError("Updated branch name is required for branch name change");
         return;
       }
-      if (values.response === 'name_and_address_change' && (!values.updateAddress || !values.updatedBranchName)) {
+      if (values.response === 'bank_shift' && (!values.updateAddress || !values.updatedBranchName)) {
         setError("Both updated address and branch name are required");
         return;
       }
@@ -146,6 +190,14 @@ export function BankAssignment() {
       setError("Failed to update bank information. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNameChange = () => {
+    const newName = window.prompt("Enter new name:");
+    if (newName?.trim()) {
+      localStorage.setItem('userName', newName.trim());
+      setUserName(newName.trim());
     }
   };
 
@@ -216,7 +268,17 @@ export function BankAssignment() {
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
           <span>Bank Details</span>
-          <span className="text-sm font-normal">Working as: {userName}</span>
+          <div className="flex items-center gap-4">
+            <span className="text-sm font-normal">Working as: {userName}</span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleNameChange}
+              className="text-xs"
+            >
+              Change Name
+            </Button>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -249,7 +311,7 @@ export function BankAssignment() {
             <FormField
               control={form.control}
               name="phoneNumber"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Phone Number</FormLabel>
                   <FormControl>
@@ -257,8 +319,40 @@ export function BankAssignment() {
                       placeholder="Enter phone number" 
                       {...field} 
                       autoFocus
+                      className={fieldState.error ? "border-red-500" : ""}
                     />
                   </FormControl>
+                  {fieldState.error && (
+                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                  )}
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="phoneResponse"
+              render={({ field, fieldState }) => (
+                <FormItem>
+                  <FormLabel>Phone Response</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 ${fieldState.error ? "border-red-500" : ""}`}>
+                        <SelectValue placeholder="Select phone response" className="text-blue-900" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-white border-blue-200">
+                      <SelectItem value="toll_free" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Toll Free Number</SelectItem>
+                      <SelectItem value="registered_only" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Can Contact Only Through Registered Number</SelectItem>
+                      <SelectItem value="invalid_number" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Invalid Phone Number</SelectItem>
+                      <SelectItem value="no_response" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">No Response</SelectItem>
+                      <SelectItem value="switched_off" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Phone Number Switched Off</SelectItem>
+                      <SelectItem value="number_not_found" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Number Not Found</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {fieldState.error && (
+                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                  )}
                 </FormItem>
               )}
             />
@@ -266,50 +360,110 @@ export function BankAssignment() {
             <FormField
               control={form.control}
               name="response"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Response Type</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger className="bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100">
+                      <SelectTrigger className={`bg-blue-50 border-blue-200 focus:ring-blue-500 hover:bg-blue-100 ${fieldState.error ? "border-red-500" : ""}`}>
                         <SelectValue placeholder="Select response type" className="text-blue-900" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-white border-blue-200">
-                      <SelectItem value="address_change" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Address Change</SelectItem>
-                      <SelectItem value="name_change" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Branch Name Change</SelectItem>
-                      <SelectItem value="name_and_address_change" className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer">Branch Name & Address Change</SelectItem>
+                      <SelectItem 
+                        value="address_change" 
+                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
+                      >
+                        Address Change
+                      </SelectItem>
+                      <SelectItem 
+                        value="branch_name_change" 
+                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
+                      >
+                        Branch Name Change
+                      </SelectItem>
+                      <SelectItem 
+                        value="no_change_in_address" 
+                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
+                      >
+                        No Change in Address
+                      </SelectItem>
+                      <SelectItem 
+                        value="bank_shift" 
+                        className="hover:bg-blue-50 focus:bg-blue-50 cursor-pointer"
+                      >
+                        Bank Shift
+                      </SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldState.error && (
+                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                  )}
                 </FormItem>
               )}
             />
 
-            {(form.watch('response') === 'address_change' || form.watch('response') === 'name_and_address_change') && (
+            {(form.watch('response') === 'address_change') && (
               <FormField
                 control={form.control}
                 name="updateAddress"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
-                    <FormLabel>Updated Address</FormLabel>
+                    <FormLabel>Correct Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter updated address" {...field} />
+                      <Input 
+                        placeholder="Enter the correct address" 
+                        {...field} 
+                        className={fieldState.error ? "border-red-500" : ""}
+                      />
                     </FormControl>
+                    {fieldState.error && (
+                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    )}
                   </FormItem>
                 )}
               />
             )}
 
-            {(form.watch('response') === 'name_change' || form.watch('response') === 'name_and_address_change') && (
+            {(form.watch('response') === 'bank_shift') && (
+              <FormField
+                control={form.control}
+                name="updateAddress"
+                render={({ field, fieldState }) => (
+                  <FormItem>
+                    <FormLabel>New Location Address</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Enter the new location address" 
+                        {...field} 
+                        className={fieldState.error ? "border-red-500" : ""}
+                      />
+                    </FormControl>
+                    {fieldState.error && (
+                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    )}
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {(form.watch('response') === 'branch_name_change') && (
               <FormField
                 control={form.control}
                 name="updatedBranchName"
-                render={({ field }) => (
+                render={({ field, fieldState }) => (
                   <FormItem>
                     <FormLabel>Updated Branch Name</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter updated branch name" {...field} />
+                      <Input 
+                        placeholder="Enter updated branch name" 
+                        {...field} 
+                        className={fieldState.error ? "border-red-500" : ""}
+                      />
                     </FormControl>
+                    {fieldState.error && (
+                      <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                    )}
                   </FormItem>
                 )}
               />
@@ -318,15 +472,19 @@ export function BankAssignment() {
             <FormField
               control={form.control}
               name="remarks"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Remarks</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Enter any remarks or additional information" 
                       {...field} 
+                      className={fieldState.error ? "border-red-500" : ""}
                     />
                   </FormControl>
+                  {fieldState.error && (
+                    <p className="text-sm text-red-500 mt-1">{fieldState.error.message}</p>
+                  )}
                 </FormItem>
               )}
             />
