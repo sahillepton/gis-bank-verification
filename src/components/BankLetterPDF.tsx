@@ -38,7 +38,20 @@ const styles = StyleSheet.create({
   },
   paragraph: {
     marginBottom: 5,
-  }
+  },
+  highlightBox: {
+    backgroundColor: '#FFFF00',
+    color: '#000',
+    padding: 4,
+    marginTop: 20,
+    alignSelf: 'flex-start',
+    minWidth: 180,
+  },
+  highlightText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#000',
+  },
 });
 
 interface BankLetterPDFProps {
@@ -49,7 +62,7 @@ interface BankLetterPDFProps {
 
 export const BankLetterPDF = ({ bank, qrCodeUrl, date = '17th June 2025' }: BankLetterPDFProps) => (
   <Document>
-    <Page size="A4" style={styles.page}>
+    <Page size="A4" style={styles.page} wrap={false}>
       <View style={styles.header}>
         <Text style={styles.date}>Dated: {date}</Text>
         <View style={styles.addressee}>
@@ -62,7 +75,7 @@ export const BankLetterPDF = ({ bank, qrCodeUrl, date = '17th June 2025' }: Bank
 
       <View style={styles.content}>
         <Text style={styles.paragraph}>
-          We work for Google and are currently in the process of updating bank branch addresses on Google Map. During this process, we noticed that the address listed for your branch, according to the RBI records, appears to be inaccurate or incomplete.
+          We are a partner of Google and are currently in the process of updating bank branch addresses on Google Map. During this process, we noticed that the address listed for your branch, according to the RBI records, appears to be inaccurate or incomplete.
         </Text>
 
         <Text style={styles.paragraph}>As per the RBI records, the address is listed as:</Text>
@@ -87,13 +100,9 @@ export const BankLetterPDF = ({ bank, qrCodeUrl, date = '17th June 2025' }: Bank
         <Text style={styles.paragraph}>Thank you for your cooperation.</Text>
       </View>
 
-      <View style={styles.footer}>
-        <Text>From:</Text>
-        <Text>Lepton Software Export and Research (P) Ltd.</Text>
-        <Text>570, Udyog Vihar, Phase-V</Text>
-        <Text>Gurugram, Haryana – 122016</Text>
-        <Text>http://www.leptonsoftware.com</Text>
-      </View>
+      {/* Remove highlighted box, just show as normal text */}
+      <Text style={styles.paragraph}>{bank.bankName}</Text>
+      <Text style={styles.paragraph}>{bank.address}</Text>
     </Page>
   </Document>
 ); 

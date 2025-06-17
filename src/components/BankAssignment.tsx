@@ -9,10 +9,13 @@ import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
-import { PDFDownloadLink } from '@react-pdf/renderer';
+import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { BankLetterPDF } from './BankLetterPDF';
-import { QRCodeGenerator } from './QRCodeGenerator';
+import { BankListPDF } from './BankListPDF';
+import { QRCodeGenerator, generateQRCodeData } from './QRCodeGenerator';
+import QRCode from 'qrcode';
 import type { Bank } from '../types/bank';
+import ReactDOM from 'react-dom/client';
 
 const formSchema = z.object({
   phoneNumber: z.string()
@@ -73,6 +76,8 @@ export function BankAssignment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
+  const [allBanks, setAllBanks] = useState<Bank[]>([]);
+  const [generatingPDFs, setGeneratingPDFs] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -109,6 +114,66 @@ export function BankAssignment() {
       setLoading(false);
     }
   };
+
+  const fetchAllBanks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(SHEETY_API);
+      setAllBanks(response.data.banks);
+    } catch (error) {
+      setError("Failed to fetch all banks. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateQRCodeForBank = async (bank: Bank): Promise<string> => {
+    try {
+      const qrData = generateQRCodeData(bank);
+      return await QRCode.toDataURL(qrData, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#ffffff',
+        },
+      });
+    } catch (err) {
+      console.error('Error generating QR code:', err);
+      return '';
+    }
+  };
+
+  const handleGenerateAllPDFs = async () => {
+    setGeneratingPDFs(true);
+    try {
+      for (const bank of allBanks) {
+        const qrCodeUrl = await generateQRCodeForBank(bank);
+        if (qrCodeUrl) {
+          const doc = <BankLetterPDF bank={bank} qrCodeUrl={qrCodeUrl} />;
+          const blob = await pdf(doc).toBlob();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${bank.bankName.replace(/\s+/g, '_')}_${bank.branchName.replace(/\s+/g, '_')}_letter.pdf`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    } catch (error) {
+      setError("Failed to generate PDFs. Please try again.");
+    } finally {
+      setGeneratingPDFs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllBanks();
+  }, []);
 
   useEffect(() => {
     if (userName && !currentBank && !loading) {
@@ -263,7 +328,7 @@ export function BankAssignment() {
               </Button>
             </>
           ) : (
-            <p className="text-center">Please wait while we find the next available bank...</p>
+            <p className="text-center mb-4">Please wait while we find the next available bank...</p>
           )}
         </CardContent>
       </Card>
@@ -276,6 +341,14 @@ export function BankAssignment() {
         <CardTitle className="flex justify-between items-center">
           <span>Bank Details</span>
           <div className="flex items-center gap-4">
+            <Button 
+              variant="outline"
+              disabled={generatingPDFs}
+              onClick={handleGenerateAllPDFs}
+              className="min-w-[200px]"
+            >
+              {generatingPDFs ? 'Generating PDFs...' : 'Generate Individual PDFs for All Banks'}
+            </Button>
             <span className="text-sm font-normal">Working as: {userName}</span>
             <Button 
               variant="outline" 

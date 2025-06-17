@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import QRCode from 'qrcode';
 import type { Bank } from '../types/bank';
 
-const BACKEND_URL = 'http://localhost:4000/api';
+const BACKEND_URL = 'https://gis-bank-verification-backend-api.onrender.com/api';
 
 interface QRCodeGeneratorProps {
   bank: Bank;
