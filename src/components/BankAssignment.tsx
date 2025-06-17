@@ -59,9 +59,9 @@ const formSchema = z.object({
     }, "Branch name should start with a capital letter"),
   
   remarks: z.string()
-    .min(5, "Remarks must be at least 5 characters")
     .max(500, "Remarks must not exceed 500 characters")
-    .refine((val) => val.trim().split(' ').length >= 2, "Remarks should contain at least 2 words")
+    .optional()
+    .transform(val => val || "") // Transform empty string or undefined to empty string
 });
 
 const SHEETY_API = 'https://api.sheety.co/632604ca09353483222880568eb0ebe2/bankAddressForCalling/banks';
