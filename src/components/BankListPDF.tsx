@@ -53,7 +53,7 @@ export const BankListPDF = ({ banks, date = new Date().toLocaleDateString() }: B
         <Text>Generated on: {date}</Text>
       </View>
 
-      {banks.map((bank, index) => (
+      {banks.map((bank, ) => (
         <View key={bank.id} style={styles.bankSection}>
           <Text style={styles.bankName}>{bank.bankName} - {bank.branchName}</Text>
           <View style={styles.bankDetails}>
