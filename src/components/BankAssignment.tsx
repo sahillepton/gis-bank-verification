@@ -11,11 +11,9 @@ import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { PDFDownloadLink, pdf } from '@react-pdf/renderer';
 import { BankLetterPDF } from './BankLetterPDF';
-import { BankListPDF } from './BankListPDF';
 import { QRCodeGenerator, generateQRCodeData } from './QRCodeGenerator';
 import QRCode from 'qrcode';
 import type { Bank } from '../types/bank';
-import ReactDOM from 'react-dom/client';
 
 const formSchema = z.object({
   phoneNumber: z.string()
